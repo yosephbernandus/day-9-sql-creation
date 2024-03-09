@@ -2,39 +2,28 @@ CREATE DATABASE bill_mate;
 
 \c bill_mate;
 
-CREATE TABLE auth_user (
-  auth_user_id SERIAL PRIMARY KEY,
-  username VARCHAR(64) UNIQUE NOT NULL,
-  email VARCHAR(255) NOT NULL,
-  password VARCHAR NOT NULL, 
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-
-CREATE TABLE participant (
-  participant_id SERIAL PRIMARY KEY,
-  group_id INTEGER NOT NULL REFERENCES bill_group(group_id),
-  name VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE bill_group (
   group_id SERIAL PRIMARY KEY,
-  auth_user_id INTEGER NOT NULL REFERENCES auth_user(auth_user_id),
   description VARCHAR,
   category VARCHAR(64),
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  auth_user_id INTEGER not NULL,
+  constraint fk_auth_user foreign KEY(auth_user_id) references auth_user(id)
+);
+
+CREATE TABLE participant (
+  participant_id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  group_id INTEGER NOT NULL,
+  constraint fk_group foreign KEY(group_id) references bill_group(group_id)
 );
 
 CREATE TABLE bill (
   bill_id SERIAL PRIMARY KEY,
   photo BYTEA, -- image storage as byte array
-  group_id INTEGER NOT NULL REFERENCES bill_group(group_id),
-  paid_by_participant_id INTEGER REFERENCES participant(participant_id),
-  participant_owes_id INTEGER REFERENCES participant(participant_id),
   name VARCHAR(255) NOT NULL,
   sub_total_bill BIGINT NOT NULL,
   total_bill BIGINT NOT NULL,
@@ -43,8 +32,15 @@ CREATE TABLE bill (
   discount_rate NUMERIC(4,2) DEFAULT 0.0,
   description TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  group_id INTEGER NOT NULL,
+  paid_by_participant_id INTEGER,
+  participant_owes_id INTEGER,
+  constraint fk_group foreign KEY(group_id) references bill_group(group_id),
+  constraint fk_paid_participant foreign KEY(paid_by_participant_id) references participant(participant_id),
+  constraint fk_owes_participant foreign KEY(participant_owes_id) references participant(participant_id)
 );
+
 
 CREATE TABLE transaction (
   transaction_id SERIAL PRIMARY KEY,
@@ -54,13 +50,28 @@ CREATE TABLE transaction (
   status VARCHAR(64) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  participant_id INTEGER NOT NULL REFERENCES participant(participant_id)
+  participant_id INTEGER NOT NULL,
+  constraint fk_participant foreign KEY(participant_id) references participant(participant_id)
 );
 
+
 CREATE TABLE bill_participant_owes (  -- Many-to-Many relationship table
+  PRIMARY KEY (bill_id, participant_id),
   bill_id INTEGER REFERENCES bill(bill_id),
-  participant_id INTEGER REFERENCES participant(participant_id),
-  PRIMARY KEY (bill_id, participant_id)
+  participant_id INTEGER,
+  constraint fk_bill foreign KEY(bill_id) references bill(bill_id),
+  constraint fk_participant foreign KEY(participant_id) references participant(participant_id)
 );
+
+
+drop table if exists bill_participant_owes;
+
+drop table if exists transaction;
+
+drop table if exists bill;
+
+drop table if exists participant;
+
+drop table if exists bill_group;
 
 GRANT ALL PRIVILEGES ON DATABASE bill_mate TO yoseph;
